@@ -8,15 +8,17 @@ from django.contrib.sites.models import Site
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.template import Template, Context
-from django.utils.datastructures import SortedDict
+
+from collections import OrderedDict as SortedDictt
 
 from rollyourown.seo.utils import resolve_to_name, NotSet, Literal
 
 RESERVED_FIELD_NAMES = ('_metadata', '_path', '_content_type', '_object_id',
-                        '_content_object', '_view', '_site', 'objects', 
-                        '_resolve_value', '_set_context', 'id', 'pk' )
+                        '_content_object', '_view', '_site', 'objects',
+                        '_resolve_value', '_set_context', 'id', 'pk')
 
 backend_registry = SortedDict()
+
 
 class MetadataBaseModel(models.Model):
 
@@ -70,6 +72,7 @@ class MetadataBaseModel(models.Model):
 
 
 class BaseManager(models.Manager):
+
     def on_current_site(self, site=None):
         if isinstance(site, Site):
             site_id = site.id
@@ -104,8 +107,9 @@ class BaseManager(models.Manager):
 # This means that:
 #   -  all fields that share uniqueness (backend fields, _site, _language) need to be defined in the same model
 #   -  as backends should have full control over the model, therefore every backend needs to define the compulsory fields themselves (eg _site and _language).
-#      There is no way to add future compulsory fields to all backends without editing each backend individually. 
+#      There is no way to add future compulsory fields to all backends without editing each backend individually.
 #      This is probably going to have to be a limitataion we need to live with.
+
 
 class MetadataBackend(object):
     name = None
@@ -113,6 +117,7 @@ class MetadataBackend(object):
     unique_together = None
 
     class __metaclass__(type):
+
         def __new__(cls, name, bases, attrs):
             new_class = type.__new__(cls, name, bases, attrs)
             backend_registry[new_class.name] = new_class
@@ -133,6 +138,7 @@ class MetadataBackend(object):
         _get_instances = self.get_instances
 
         class _Manager(BaseManager):
+
             def get_instances(self, path, site=None, language=None, context=None):
                 queryset = self.for_site_and_language(site, language)
                 return _get_instances(queryset, path, context)
@@ -145,10 +151,9 @@ class MetadataBackend(object):
                     return queryset
         return _Manager
 
-
     @staticmethod
     def validate(options):
-        """ Validates the application of this backend to a given metadata 
+        """ Validates the application of this backend to a given metadata
         """
 
 
@@ -162,11 +167,14 @@ class PathBackend(MetadataBackend):
 
     def get_model(self, options):
         class PathMetadataBase(MetadataBaseModel):
-            _path = models.CharField(_('path'), max_length=255, unique=not (options.use_sites or options.use_i18n))
+            _path = models.CharField(_('path'), max_length=255, unique=not (
+                options.use_sites or options.use_i18n))
             if options.use_sites:
-                _site = models.ForeignKey(Site, null=True, blank=True, verbose_name=_("site"))
+                _site = models.ForeignKey(
+                    Site, null=True, blank=True, verbose_name=_("site"))
             if options.use_i18n:
-                _language = models.CharField(_("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
+                _language = models.CharField(
+                    _("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
             objects = self.get_manager(options)()
 
             def __unicode__(self):
@@ -195,11 +203,14 @@ class ViewBackend(MetadataBackend):
 
     def get_model(self, options):
         class ViewMetadataBase(MetadataBaseModel):
-            _view = models.CharField(_('view'), max_length=255, unique=not (options.use_sites or options.use_i18n), default="", blank=True)
+            _view = models.CharField(_('view'), max_length=255, unique=not (
+                options.use_sites or options.use_i18n), default="", blank=True)
             if options.use_sites:
-                _site = models.ForeignKey(Site, null=True, blank=True, verbose_name=_("site"))
+                _site = models.ForeignKey(
+                    Site, null=True, blank=True, verbose_name=_("site"))
             if options.use_i18n:
-                _language = models.CharField(_("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
+                _language = models.CharField(
+                    _("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
             objects = self.get_manager(options)()
 
             def _process_context(self, context):
@@ -209,7 +220,7 @@ class ViewBackend(MetadataBackend):
 
             def _populate_from_kwargs(self):
                 return {'view_name': self._view}
-        
+
             def _resolve_value(self, name):
                 value = super(ViewMetadataBase, self)._resolve_value(name)
                 try:
@@ -219,7 +230,7 @@ class ViewBackend(MetadataBackend):
 
             def __unicode__(self):
                 return self._view
-    
+
             class Meta:
                 abstract = True
                 unique_together = self.get_unique_together(options)
@@ -237,16 +248,20 @@ class ModelInstanceBackend(MetadataBackend):
 
     def get_model(self, options):
         class ModelInstanceMetadataBase(MetadataBaseModel):
-            _path = models.CharField(_('path'), max_length=255, editable=False, unique=not (options.use_sites or options.use_i18n))
+            _path = models.CharField(_('path'), max_length=255, editable=False, unique=not (
+                options.use_sites or options.use_i18n))
             _content_type = models.ForeignKey(ContentType, editable=False)
             _object_id = models.PositiveIntegerField(editable=False)
-            _content_object = generic.GenericForeignKey('_content_type', '_object_id')
+            _content_object = generic.GenericForeignKey(
+                '_content_type', '_object_id')
             if options.use_sites:
-                _site = models.ForeignKey(Site, null=True, blank=True, verbose_name=_("site"))
+                _site = models.ForeignKey(
+                    Site, null=True, blank=True, verbose_name=_("site"))
             if options.use_i18n:
-                _language = models.CharField(_("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
+                _language = models.CharField(
+                    _("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
             objects = self.get_manager(options)()
-        
+
             def __unicode__(self):
                 return self._path
 
@@ -286,31 +301,33 @@ class ModelBackend(MetadataBackend):
         class ModelMetadataBase(MetadataBaseModel):
             _content_type = models.ForeignKey(ContentType)
             if options.use_sites:
-                _site = models.ForeignKey(Site, null=True, blank=True, verbose_name=_("site"))
+                _site = models.ForeignKey(
+                    Site, null=True, blank=True, verbose_name=_("site"))
             if options.use_i18n:
-                _language = models.CharField(_("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
+                _language = models.CharField(
+                    _("language"), max_length=5, null=True, blank=True, db_index=True, choices=settings.LANGUAGES)
             objects = self.get_manager(options)()
 
             def __unicode__(self):
                 return unicode(self._content_type)
 
             def _process_context(self, context):
-                """ Use the given model instance as context for rendering 
-                    any substitutions. 
+                """ Use the given model instance as context for rendering
+                    any substitutions.
                 """
                 if 'model_instance' in context:
                     self.__instance = context['model_instance']
 
             def _populate_from_kwargs(self):
                 return {'content_type': self._content_type}
-        
+
             def _resolve_value(self, name):
                 value = super(ModelMetadataBase, self)._resolve_value(name)
                 try:
                     return _resolve(value, self.__instance._content_object)
                 except AttributeError:
                     return value
-        
+
             class Meta:
                 abstract = True
                 unique_together = self.get_unique_together(options)
@@ -318,18 +335,19 @@ class ModelBackend(MetadataBackend):
 
     @staticmethod
     def validate(options):
-        """ Validates the application of this backend to a given metadata 
+        """ Validates the application of this backend to a given metadata
         """
         try:
             if options.backends.index('modelinstance') > options.backends.index('model'):
-                raise Exception("Metadata backend 'modelinstance' must come before 'model' backend")
+                raise Exception(
+                    "Metadata backend 'modelinstance' must come before 'model' backend")
         except ValueError:
-            raise Exception("Metadata backend 'modelinstance' must be installed in order to use 'model' backend")
-
+            raise Exception(
+                "Metadata backend 'modelinstance' must be installed in order to use 'model' backend")
 
 
 def _resolve(value, model_instance=None, context=None):
-    """ Resolves any template references in the given value. 
+    """ Resolves any template references in the given value.
     """
 
     if isinstance(value, basestring) and "{" in value:
@@ -339,4 +357,3 @@ def _resolve(value, model_instance=None, context=None):
             context[model_instance._meta.module_name] = model_instance
         value = Template(value).render(context)
     return value
-

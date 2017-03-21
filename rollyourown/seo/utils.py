@@ -10,15 +10,19 @@ from django.utils.safestring import mark_safe
 from django.utils.html import conditional_escape
 from django.contrib.contenttypes.models import ContentType
 
+
 class NotSet(object):
     " A singleton to identify unset values (where None would have meaning) "
+
     def __str__(self): return "NotSet"
+
     def __repr__(self): return self.__str__()
 NotSet = NotSet()
 
 
 class Literal(object):
     " Wrap literal values so that the system knows to treat them that way "
+
     def __init__(self, value):
         self.value = value
 
@@ -40,32 +44,39 @@ class LazyList(list):
             # TODO: Test this functionality!
             self.populate = populate_function
         self._populated = False
+
     def _populate(self):
         """ Populate this list by calling populate(), but only once. """
         if not self._populated:
-            logging.debug("Populating lazy list %d (%s)" % (id(self), self.__class__.__name__))
+            logging.debug("Populating lazy list %d (%s)" %
+                          (id(self), self.__class__.__name__))
             try:
                 self.populate()
                 self._populated = True
-            except Exception, e:
+            except Exception as e:
                 logging.debug("Currently unable to populate lazy list: %s" % e)
 
     # Accessing methods that require a populated field
     def __len__(self):
         self._populate()
         return super(LazyList, self).__len__()
+
     def __getitem__(self, key):
         self._populate()
         return super(LazyList, self).__getitem__(key)
+
     def __setitem__(self, key, value):
         self._populate()
         return super(LazyList, self).__setitem__(key, value)
+
     def __delitem__(self, key):
         self._populate()
         return super(LazyList, self).__delitem__(key)
+
     def __iter__(self):
         self._populate()
         return super(LazyList, self).__iter__()
+
     def __contains__(self, item):
         self._populate()
         return super(LazyList, self).__contains__(item)
@@ -78,7 +89,7 @@ class LazyChoices(LazyList):
 
     def __nonzero__(self):
         # Django tests for existence too early, meaning population is attempted
-        # before the models have been imported. 
+        # before the models have been imported.
         # This may have some side effects if truth testing is supposed to
         # evaluate the list, but in the case of django choices, this is not
         # The case. This prevents __len__ from being called on truth tests.
@@ -90,6 +101,7 @@ class LazyChoices(LazyList):
 
 from django.core.urlresolvers import RegexURLResolver, RegexURLPattern, Resolver404, get_resolver
 
+
 def _pattern_resolve_to_name(pattern, path):
     match = pattern.regex.search(path)
     if match:
@@ -99,8 +111,10 @@ def _pattern_resolve_to_name(pattern, path):
         elif hasattr(pattern, '_callback_str'):
             name = pattern._callback_str
         else:
-            name = "%s.%s" % (pattern.callback.__module__, pattern.callback.func_name)
+            name = "%s.%s" % (pattern.callback.__module__,
+                              pattern.callback.func_name)
         return name
+
 
 def _resolver_resolve_to_name(resolver, path):
     tried = []
@@ -114,7 +128,8 @@ def _resolver_resolve_to_name(resolver, path):
                 elif isinstance(pattern, RegexURLResolver):
                     name = _resolver_resolve_to_name(pattern, new_path)
             except Resolver404, e:
-                tried.extend([(pattern.regex.pattern + '   ' + t) for t in e.args[0]['tried']])
+                tried.extend([(pattern.regex.pattern + '   ' + t)
+                              for t in e.args[0]['tried']])
             else:
                 if name:
                     return name
@@ -136,7 +151,7 @@ def _replace_quot(match):
 
 def escape_tags(value, valid_tags):
     """ Strips text from the given html string, leaving only tags.
-        This functionality requires BeautifulSoup, nothing will be 
+        This functionality requires BeautifulSoup, nothing will be
         done otherwise.
 
         This isn't perfect. Someone could put javascript in here:
@@ -154,21 +169,24 @@ def escape_tags(value, valid_tags):
     # 2. Reenable certain tags
     if valid_tags:
         # TODO: precompile somewhere once?
-        tag_re = re.compile(r'&lt;(\s*/?\s*(%s))(.*?\s*)&gt;' % u'|'.join(re.escape(tag) for tag in valid_tags))
+        tag_re = re.compile(r'&lt;(\s*/?\s*(%s))(.*?\s*)&gt;' %
+                            u'|'.join(re.escape(tag) for tag in valid_tags))
         value = tag_re.sub(_replace_quot, value)
 
     # Allow comments to be hidden
     value = value.replace("&lt;!--", "<!--").replace("--&gt;", "-->")
-    
+
     return mark_safe(value)
 
 
 def _get_seo_content_types(seo_models):
     """ Returns a list of content types from the models defined in settings (SEO_MODELS) """
     try:
-        return [ ContentType.objects.get_for_model(m).id for m in seo_models ]
-    except: # previously caught DatabaseError
+        return [ContentType.objects.get_for_model(m).id for m in seo_models]
+    except:  # previously caught DatabaseError
         # Return an empty list if this is called too early
         return []
+
+
 def get_seo_content_types(seo_models):
     return lazy(_get_seo_content_types, list)(seo_models)
